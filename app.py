@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS for styling, colors, and branded platform tags
 st.markdown("""
 <style>
     .main-header {
@@ -25,18 +25,47 @@ st.markdown("""
         font-size: 1.05rem;
         margin-bottom: 1.8rem;
     }
+    
+    /* Professional Light/Royal Blue Button */
     .stButton>button {
-        background-color: #d97706;
-        color: white;
-        font-weight: 600;
-        border-radius: 8px;
-        padding: 0.55rem 1.3rem;
-        border: none;
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        padding: 0.65rem 1.3rem !important;
+        border: none !important;
+        box-shadow: 0 2px 5px rgba(2, 132, 199, 0.3) !important;
+        transition: all 0.2s ease-in-out !important;
     }
-    .stButton>button:hover {
-        background-color: #b45309;
-        color: white;
+    .stButton>button:hover, .stButton>button:focus {
+        background-color: #0369a1 !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 8px rgba(3, 105, 161, 0.4) !important;
     }
+
+    /* Branded Platform Tag Colors in Multiselect */
+    span[data-baseweb="tag"]:has(span[title*="Facebook"]) {
+        background-color: #1877F2 !important;
+        color: #ffffff !important;
+    }
+    span[data-baseweb="tag"]:has(span[title*="WhatsApp"]) {
+        background-color: #25D366 !important;
+        color: #ffffff !important;
+    }
+    span[data-baseweb="tag"]:has(span[title*="TikTok"]) {
+        background-color: #FE2C55 !important;
+        color: #ffffff !important;
+    }
+    span[data-baseweb="tag"]:has(span[title*="X"]) {
+        background-color: #0F1419 !important;
+        color: #ffffff !important;
+    }
+    
+    /* Target tag text inner color */
+    span[data-baseweb="tag"] span {
+        color: #ffffff !important;
+    }
+
     div[data-testid="stMarkdownContainer"] h3 {
         margin-top: 1.5rem;
     }
@@ -49,11 +78,14 @@ with st.sidebar:
     st.caption("Specialised content generator for taverns")
     
     st.markdown("---")
-    api_key = st.text_input(
+    api_key_input = st.text_input(
         "Gemini API Key",
         type="password",
         help="Get a free key at https://aistudio.google.com/apikey"
     )
+    
+    # Fallback to secrets if sidebar is empty
+    api_key = api_key_input.strip() or st.secrets.get("GEMINI_API_KEY", "")
     
     if api_key:
         st.success("API key loaded", icon="✅")
@@ -91,7 +123,7 @@ Platform-specific guidance:
 """
 
 def generate_content(tavern_name, location, special, platforms, tone, language, extra_notes, api_key):
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key.strip())
     
     platforms_text = ", ".join(platforms) if platforms else "All platforms"
     
@@ -133,7 +165,7 @@ Make everything feel local, energetic and ready to post immediately.
 """
     
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
@@ -151,7 +183,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     tavern_name = st.text_input("Tavern Name *", placeholder="e.g. Golden Barrel Tavern")
-    location = st.text_input("Location / Area", placeholder="e.g. Diepsloot, Johannesburg")
+    location = st.text_input("Location / Area", placeholder="e.g. Dinokana, Zeerust")
     special = st.text_area(
         "Special / Event / Offer *",
         placeholder="e.g. Friday Special: Castle Lite R25 + DJ from 8pm\nor Big screen soccer this Saturday + wings special",
