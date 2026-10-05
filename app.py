@@ -5,13 +5,13 @@ from datetime import datetime
 
 # Page config
 st.set_page_config(
-    page_title="TavernBoost – Content Generator",
+    page_title="TavernBoost - Content Generator",
     page_icon="🍻",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for styling, colors, and branded platform tags
+# Custom CSS for styling, blue button, and blue platform tags
 st.markdown("""
 <style>
     .main-header {
@@ -43,17 +43,17 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(3, 105, 161, 0.4) !important;
     }
 
-    /* Wipe out default Streamlit red tag backgrounds */
-    .stMultiSelect [data-baseweb="tag"],
+    /* Force override Streamlit default red tags to Royal Blue */
     div[data-baseweb="tag"], 
-    span[data-baseweb="tag"] {
+    span[data-baseweb="tag"],
+    [data-baseweb="tag"] {
         background-color: #0284c7 !important;
         border-radius: 6px !important;
     }
     
-    .stMultiSelect [data-baseweb="tag"] *,
     div[data-baseweb="tag"] *, 
-    span[data-baseweb="tag"] * {
+    span[data-baseweb="tag"] *,
+    [data-baseweb="tag"] * {
         color: #ffffff !important;
         fill: #ffffff !important;
     }
@@ -92,24 +92,23 @@ with st.sidebar:
     st.markdown("**Default language:** English")
     st.caption("Setswana option available below")
 
-# System prompt specialised for taverns + all platforms
+# System prompt specialized for taverns + all platforms (Standard ASCII cleaned)
 SYSTEM_PROMPT = """You are an expert local marketing copywriter specialising in South African taverns, shebeens and pubs.
 You write short, energetic, authentic social media content that feels local and natural.
 
 Rules:
 - Default language is English. Only use Setswana when the user specifically requests it.
 - When Setswana is requested, write natural everyday Setswana (or a natural mix of Setswana + English as people actually speak in South Africa).
-- Keep every piece of content short and punchy – perfect for social media.
+- Keep every piece of content short and punchy - perfect for social media.
 - Always include a clear call-to-action (visit, WhatsApp us, bring your crew, mention the promo, etc.).
-- Use relevant emojis sparingly but effectively (🍻 🍗 🎵 🔥 📍 👀 🍻).
 - Sound like a real local person talking, not a corporate agency or AI.
 - Never invent prices, times or details the user did not provide.
 - Offer multiple strong variations.
-- Always include a tracking-friendly CTA idea when useful (e.g. “Mention WhatsApp”, “Show this Status”, “Comment FACEBOOK”).
+- Always include a tracking-friendly CTA idea when useful (e.g. "Mention WhatsApp", "Show this Status", "Comment FACEBOOK").
 
 Platform-specific guidance:
 - Facebook / Instagram: Good captions, can be a bit longer, use line breaks, strong first line.
-- WhatsApp Status: Extremely short (1–2 lines max), very punchy.
+- WhatsApp Status: Extremely short (1-2 lines max), very punchy.
 - TikTok / Reels: Short hook + caption + suggested on-screen text / first 3 seconds idea.
 - X (Twitter): Keep under 280 characters, sharp and shareable.
 """
@@ -124,7 +123,7 @@ Create ready-to-post content for this tavern:
 
 Tavern name: {tavern_name}
 Location: {location or "not specified"}
-Today’s special / event / offer: {special}
+Today's special / event / offer: {special}
 Platforms needed: {platforms_text}
 Desired tone: {tone}
 Language: {language}
@@ -136,7 +135,7 @@ Please generate the following, clearly separated with headings:
 Give 3 strong caption options (ready to copy-paste). Use line breaks for readability.
 
 ### WhatsApp Status
-Give 2–3 very short Status options (1–2 lines maximum each).
+Give 2-3 very short Status options (1-2 lines maximum each).
 
 ### TikTok / Reels
 Give:
@@ -148,10 +147,10 @@ Give:
 Give 2 short posts (under 280 characters each).
 
 ### Hashtags
-Suggest 6–8 relevant hashtags.
+Suggest 6-8 relevant hashtags.
 
 ### Tracking CTA ideas
-Give 2 simple tracking phrases the tavern can use (e.g. “Mention WhatsApp for R10 off”, “Show this Status”, “Comment FACEBOOK”).
+Give 2 simple tracking phrases the tavern can use (e.g. "Mention WhatsApp for R10 off", "Show this Status", "Comment FACEBOOK").
 
 Make everything feel local, energetic and ready to post immediately.
 """
@@ -254,4 +253,4 @@ if generate_btn:
                 st.info("Check that your API key is valid and you still have free quota.")
 
 st.markdown("---")
-st.caption("TavernBoost • Built by Techmo Innovations")
+st.caption("TavernBoost - Built by Techmo Innovations")
