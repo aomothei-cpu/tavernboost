@@ -43,27 +43,19 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(3, 105, 161, 0.4) !important;
     }
 
-    /* Branded Platform Tag Colors in Multiselect */
-    span[data-baseweb="tag"]:has(span[title*="Facebook"]) {
-        background-color: #1877F2 !important;
-        color: #ffffff !important;
-    }
-    span[data-baseweb="tag"]:has(span[title*="WhatsApp"]) {
-        background-color: #25D366 !important;
-        color: #ffffff !important;
-    }
-    span[data-baseweb="tag"]:has(span[title*="TikTok"]) {
-        background-color: #FE2C55 !important;
-        color: #ffffff !important;
-    }
-    span[data-baseweb="tag"]:has(span[title*="X"]) {
-        background-color: #0F1419 !important;
-        color: #ffffff !important;
+    /* Wipe out default Streamlit red tag backgrounds */
+    .stMultiSelect [data-baseweb="tag"],
+    div[data-baseweb="tag"], 
+    span[data-baseweb="tag"] {
+        background-color: #0284c7 !important;
+        border-radius: 6px !important;
     }
     
-    /* Target tag text inner color */
-    span[data-baseweb="tag"] span {
+    .stMultiSelect [data-baseweb="tag"] *,
+    div[data-baseweb="tag"] *, 
+    span[data-baseweb="tag"] * {
         color: #ffffff !important;
+        fill: #ffffff !important;
     }
 
     div[data-testid="stMarkdownContainer"] h3 {
@@ -164,15 +156,27 @@ Give 2 simple tracking phrases the tavern can use (e.g. “Mention WhatsApp for 
 Make everything feel local, energetic and ready to post immediately.
 """
     
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            temperature=0.85,
-        )
-    )
-    return response.text
+    # Try current active models to prevent 404 NOT_FOUND error
+    candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-002", "gemini-1.5-flash"]
+    
+    last_exception = None
+    for model_id in candidate_models:
+        try:
+            response = client.models.generate_content(
+                model=model_id,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=0.85,
+                )
+            )
+            return response.text
+        except Exception as e:
+            last_exception = e
+            continue
+            
+    if last_exception:
+        raise last_exception
 
 
 # ====================== MAIN INTERFACE ======================
