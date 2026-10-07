@@ -1,256 +1,194 @@
 import streamlit as st
 from google import genai
 from google.genai import types
-from datetime import datetime
 
-# Page config
-st.set_page_config(
-    page_title="TavernBoost - Content Generator",
-    page_icon="🍻",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="TavernBoost", page_icon="🍻", layout="centered")
 
-# Custom CSS for styling, blue button, and blue platform tags
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.1rem;
-        font-weight: 700;
-        color: #1a1a1a;
-        margin-bottom: 0.15rem;
-    }
-    .sub-header {
-        color: #666;
-        font-size: 1.05rem;
-        margin-bottom: 1.8rem;
-    }
-    
-    /* Professional Light/Royal Blue Button */
-    .stButton>button {
-        background-color: #0284c7 !important;
-        color: #ffffff !important;
-        font-weight: 600 !important;
-        border-radius: 8px !important;
-        padding: 0.65rem 1.3rem !important;
-        border: none !important;
-        box-shadow: 0 2px 5px rgba(2, 132, 199, 0.3) !important;
-        transition: all 0.2s ease-in-out !important;
-    }
-    .stButton>button:hover, .stButton>button:focus {
-        background-color: #0369a1 !important;
-        color: #ffffff !important;
-        box-shadow: 0 4px 8px rgba(3, 105, 161, 0.4) !important;
-    }
+# Tried in order. If Google retires one, the next is used automatically.
+MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"]
 
-    /* Force override Streamlit default red tags to Royal Blue */
-    div[data-baseweb="tag"], 
-    span[data-baseweb="tag"],
-    [data-baseweb="tag"] {
-        background-color: #0284c7 !important;
-        border-radius: 6px !important;
-    }
-    
-    div[data-baseweb="tag"] *, 
-    span[data-baseweb="tag"] *,
-    [data-baseweb="tag"] * {
-        color: #ffffff !important;
-        fill: #ffffff !important;
-    }
+PLATFORM_SPECS = {
+    "Facebook / Instagram": "{n} caption variations (max 90 words each), emojis in moderation, a clear call to action.",
+    "WhatsApp Status": "{n} WhatsApp Status lines, each under 150 characters, punchy and easy to screenshot.",
+    "TikTok / Reels": "{n} video ideas. For each: a first-3-seconds hook, a 15-second shot list, and on-screen text.",
+    "X (Twitter)": "{n} tweets, each under 270 characters, with at most 2 hashtags.",
+}
 
-    div[data-testid="stMarkdownContainer"] h3 {
-        margin-top: 1.5rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Sidebar
-with st.sidebar:
-    st.title("🍻 TavernBoost")
-    st.caption("Specialised content generator for taverns")
-    
-    st.markdown("---")
-    api_key_input = st.text_input(
-        "Gemini API Key",
-        type="password",
-        help="Get a free key at https://aistudio.google.com/apikey"
-    )
-    
-    # Fallback to secrets if sidebar is empty
-    api_key = api_key_input.strip() or st.secrets.get("GEMINI_API_KEY", "")
-    
-    if api_key:
-        st.success("API key loaded", icon="✅")
-    else:
-        st.info("Enter your free Gemini API key to generate content")
-    
-    st.markdown("---")
-    st.markdown("**Platforms covered**")
-    st.markdown("- Facebook\n- Instagram\n- WhatsApp Status\n- TikTok / Reels\n- X (Twitter)")
-    
-    st.markdown("---")
-    st.markdown("**Default language:** English")
-    st.caption("Setswana option available below")
-
-# System prompt specialized for taverns + all platforms (Standard ASCII cleaned)
-SYSTEM_PROMPT = """You are an expert local marketing copywriter specialising in South African taverns, shebeens and pubs.
-You write short, energetic, authentic social media content that feels local and natural.
+SYSTEM_PROMPT = """You are a South African social media marketer who specialises in taverns, shisanyamas and local pubs.
+You write ready-to-post content that sounds like real Mzansi people, not a corporate brochure.
 
 Rules:
-- Default language is English. Only use Setswana when the user specifically requests it.
-- When Setswana is requested, write natural everyday Setswana (or a natural mix of Setswana + English as people actually speak in South Africa).
-- Keep every piece of content short and punchy - perfect for social media.
-- Always include a clear call-to-action (visit, WhatsApp us, bring your crew, mention the promo, etc.).
-- Sound like a real local person talking, not a corporate agency or AI.
-- Never invent prices, times or details the user did not provide.
-- Offer multiple strong variations.
-- Always include a tracking-friendly CTA idea when useful (e.g. "Mention WhatsApp", "Show this Status", "Comment FACEBOOK").
-
-Platform-specific guidance:
-- Facebook / Instagram: Good captions, can be a bit longer, use line breaks, strong first line.
-- WhatsApp Status: Extremely short (1-2 lines max), very punchy.
-- TikTok / Reels: Short hook + caption + suggested on-screen text / first 3 seconds idea.
-- X (Twitter): Keep under 280 characters, sharp and shareable.
+- Use light local flavour (township slang, Friday vibes, month-end/payday energy) but keep it clear and readable.
+- Never target or appeal to minors. Never encourage excessive drinking or drunk driving.
+- Every Facebook/Instagram post and every Status must end with: "Drink responsibly. 18+"
+- Never invent prices, dates or phone numbers. Use only the details provided.
+- Use plain text with simple headings. No markdown tables.
 """
 
-def generate_content(tavern_name, location, special, platforms, tone, language, extra_notes, api_key):
-    client = genai.Client(api_key=api_key.strip())
-    
-    platforms_text = ", ".join(platforms) if platforms else "All platforms"
-    
-    user_prompt = f"""
-Create ready-to-post content for this tavern:
 
-Tavern name: {tavern_name}
-Location: {location or "not specified"}
-Today's special / event / offer: {special}
-Platforms needed: {platforms_text}
-Desired tone: {tone}
-Language: {language}
-Extra notes: {extra_notes or "none"}
+def get_api_key() -> str:
+    try:
+        key = st.secrets.get("GEMINI_API_KEY", "")
+    except Exception:
+        key = ""
+    if not key:
+        key = st.sidebar.text_input("Gemini API key", type="password")
+    return key
 
-Please generate the following, clearly separated with headings:
 
-### Facebook / Instagram Posts
-Give 3 strong caption options (ready to copy-paste). Use line breaks for readability.
+def language_rule(choice: str) -> str:
+    if choice == "English":
+        return "Write in English with light South African flavour."
+    if choice == "Setswana":
+        return "Write in Setswana (natural, conversational, not textbook). Keep brand names in English."
+    return "Write each item twice: first in English, then in Setswana (natural, conversational)."
 
-### WhatsApp Status
-Give 2-3 very short Status options (1-2 lines maximum each).
 
-### TikTok / Reels
-Give:
-- 2 short video hooks (what to say or show in the first 3 seconds)
-- Matching caption for each
-- Suggested on-screen text
+def build_post_prompt(d: dict) -> str:
+    specs = "\n".join(
+        f"- {p}: " + PLATFORM_SPECS[p].format(n=d["variations"]) for p in d["platforms"]
+    )
+    contact = d["contact"] or "no contact number given (do not invent one)"
+    return f"""Create social media content for this tavern.
 
-### X (Twitter)
-Give 2 short posts (under 280 characters each).
+Tavern: {d['name']}
+Location: {d['location']}
+Special / event: {d['special']}
+Tone: {d['tone']}
+Contact / booking: {contact}
+Language: {language_rule(d['language'])}
 
-### Hashtags
-Suggest 6-8 relevant hashtags.
+Produce, for each selected platform:
+{specs}
 
-### Tracking CTA ideas
-Give 2 simple tracking phrases the tavern can use (e.g. "Mention WhatsApp for R10 off", "Show this Status", "Comment FACEBOOK").
-
-Make everything feel local, energetic and ready to post immediately.
+Then add:
+HASHTAGS: 12 hashtags mixing local (town/area), tavern-life and event tags.
+TRACKING CTAs: 3 calls to action that let the owner measure results, for example
+"Show this post at the bar for a free shot", "WhatsApp us the word BOOST to reserve a table",
+"Tell the bartender you saw us on Facebook". Make them specific to the special above.
+BEST TIMES TO POST: one line per platform.
 """
-    
-    # Try current active models to prevent 404 NOT_FOUND error
-    candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-002", "gemini-1.5-flash"]
-    
-    last_exception = None
-    for model_id in candidate_models:
+
+
+def build_calendar_prompt(d: dict) -> str:
+    contact = d["contact"] or "no contact number given (do not invent one)"
+    return f"""Create a 7-day content calendar for this tavern, one post idea per day.
+
+Tavern: {d['name']}
+Location: {d['location']}
+Main special / event this week: {d['special']}
+Tone: {d['tone']}
+Contact / booking: {contact}
+Language: {language_rule(d['language'])}
+Platforms to use: {', '.join(d['platforms'])}
+
+For each day (Monday to Sunday) give:
+- Theme (e.g. Monday teaser, Wednesday throwback, Friday main event, month-end payday push)
+- Platform
+- Ready-to-post caption
+- A simple visual idea the owner can shoot on a phone
+- A tracking CTA
+
+Finish with 12 hashtags. Every caption ends with: "Drink responsibly. 18+"
+"""
+
+
+def generate(api_key: str, prompt: str, temperature: float) -> str:
+    client = genai.Client(api_key=api_key)
+    last_error = None
+    for model in MODELS:
         try:
             response = client.models.generate_content(
-                model=model_id,
-                contents=user_prompt,
+                model=model,
+                contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
-                    temperature=0.85,
-                )
+                    temperature=temperature,
+                ),
             )
-            return response.text
-        except Exception as e:
-            last_exception = e
-            continue
-            
-    if last_exception:
-        raise last_exception
+            if response.text:
+                return response.text
+        except Exception as e:  # try the next model
+            last_error = e
+    raise last_error or RuntimeError("No response from model.")
 
 
-# ====================== MAIN INTERFACE ======================
-st.markdown('<p class="main-header">Tavern Content Generator</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Create ready-to-post content for Facebook, Instagram, WhatsApp, TikTok & X</p>', unsafe_allow_html=True)
+# ---------- UI ----------
+st.markdown(
+    """
+    <style>
+    .block-container {padding-top: 1.5rem; max-width: 700px;}
+    .stButton>button {width: 100%; font-weight: 600; padding: 0.7rem 0;}
+    footer {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-col1, col2 = st.columns(2)
+st.title("🍻 TavernBoost")
+st.caption("Ready-to-post content for South African taverns")
 
-with col1:
-    tavern_name = st.text_input("Tavern Name *", placeholder="e.g. Golden Barrel Tavern")
-    location = st.text_input("Location / Area", placeholder="e.g. Dinokana, Zeerust")
+api_key = get_api_key()
+
+mode = st.radio("What do you need?", ["Post pack", "7-day calendar"], horizontal=True)
+
+with st.form("inputs"):
+    name = st.text_input("Tavern name", placeholder="e.g. Mama T's Place")
+    location = st.text_input("Location", placeholder="e.g. Zeerust, North West")
     special = st.text_area(
-        "Special / Event / Offer *",
-        placeholder="e.g. Friday Special: Castle Lite R25 + DJ from 8pm\nor Big screen soccer this Saturday + wings special",
-        height=110
+        "Special / event", placeholder="e.g. Friday DJ night, R20 beers till 9pm", height=90
     )
+    contact = st.text_input("WhatsApp / contact number (optional)", placeholder="e.g. 082 123 4567")
 
-with col2:
+    col1, col2 = st.columns(2)
+    tone = col1.selectbox("Tone", ["Hype", "Chilled", "Classy", "Funny", "Family-friendly daytime"])
+    language = col2.selectbox("Language", ["English", "Setswana", "Both"])
+
     platforms = st.multiselect(
-        "Platforms to generate for *",
-        options=["Facebook / Instagram", "WhatsApp Status", "TikTok / Reels", "X (Twitter)"],
-        default=["Facebook / Instagram", "WhatsApp Status", "TikTok / Reels", "X (Twitter)"]
+        "Platforms",
+        list(PLATFORM_SPECS.keys()),
+        default=["Facebook / Instagram", "WhatsApp Status"],
     )
-    tone = st.selectbox(
-        "Tone",
-        ["Hype / Party", "Chill / Relaxed", "Food-focused", "Sports / Game day", "Event / DJ night"]
-    )
-    language = st.selectbox(
-        "Language",
-        ["English (default)", "Setswana", "Both (English + Setswana versions)"]
-    )
-    extra_notes = st.text_input(
-        "Extra notes (optional)",
-        placeholder="e.g. Mention pool tables, target weekend crowd, no alcohol discount"
-    )
+    variations = st.slider("Variations per platform", 1, 5, 3) if mode == "Post pack" else 3
+    submitted = st.form_submit_button("🚀 Generate")
 
-st.markdown("")
-generate_btn = st.button("Generate Content ✨", use_container_width=True, type="primary")
-
-if generate_btn:
+if submitted:
     if not api_key:
-        st.error("Please enter your Gemini API key in the sidebar first.")
-    elif not tavern_name or not special:
-        st.warning("Please fill in at least the Tavern Name and the Special/Event.")
-    elif not platforms:
-        st.warning("Please select at least one platform.")
+        st.warning("Add your Gemini API key in the sidebar (or Streamlit secrets) to continue.")
+    elif not (name and location and special and platforms):
+        st.warning("Please fill in the tavern name, location, special and at least one platform.")
     else:
-        with st.spinner("Creating your content..."):
+        data = dict(
+            name=name, location=location, special=special, contact=contact,
+            tone=tone, language=language, platforms=platforms, variations=variations,
+        )
+        prompt = build_post_prompt(data) if mode == "Post pack" else build_calendar_prompt(data)
+        with st.spinner("Cooking up your content..."):
             try:
-                result = generate_content(
-                    tavern_name=tavern_name,
-                    location=location,
-                    special=special,
-                    platforms=platforms,
-                    tone=tone,
-                    language=language,
-                    extra_notes=extra_notes,
-                    api_key=api_key
-                )
-                
-                st.markdown("---")
-                st.markdown("### Your Content")
-                st.markdown(result)
-                
-                # Download
-                filename = f"{tavern_name.replace(' ', '_')}_content_{datetime.now().strftime('%Y%m%d_%H%M')}.txt"
-                st.download_button(
-                    label="Download as text file",
-                    data=result,
-                    file_name=filename,
-                    mime="text/plain"
-                )
+                st.session_state["result"] = generate(api_key, prompt, 0.9)
+                st.session_state["fname"] = f"{name.strip().replace(' ', '_')}_content.txt"
             except Exception as e:
-                st.error(f"Error generating content: {str(e)}")
-                st.info("Check that your API key is valid and you still have free quota.")
+                msg = str(e)
+                if "429" in msg or "quota" in msg.lower():
+                    st.error("Too many requests right now. Please try again in a minute.")
+                elif "API key" in msg or "403" in msg or "401" in msg:
+                    st.error("Your API key was rejected. Check it and try again.")
+                else:
+                    st.error("Something went wrong. Please try again.")
+                    with st.expander("Technical details"):
+                        st.code(msg)
 
-st.markdown("---")
-st.caption("TavernBoost - Built by Techmo Innovations")
+if "result" in st.session_state:
+    st.divider()
+    st.subheader("Your content")
+    st.markdown(st.session_state["result"])
+    with st.expander("Copy as plain text"):
+        st.code(st.session_state["result"], language=None)
+    st.download_button(
+        "⬇️ Download as .txt",
+        st.session_state["result"],
+        file_name=st.session_state.get("fname", "tavernboost.txt"),
+    )
+
+st.divider()
+st.caption("TavernBoost • Built by Techmo Innovations")
